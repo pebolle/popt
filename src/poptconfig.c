@@ -491,7 +491,6 @@ int poptReadDefaultConfig(poptContext con, UNUSED(int useEnv))
 	    free(fn);
 	} else
 	    rc = POPT_ERROR_ERRNO;
-	if (rc) goto exit;
     }
 
 exit:
