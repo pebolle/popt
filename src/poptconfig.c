@@ -339,7 +339,18 @@ exit:
     return rc;
 }
 
-int poptReadConfigFile(poptContext con, const char * fn)
+#define POPT_IGNORE_ENOENT 1
+
+/* poptReadConfigFile reads an optional config file, ie. it returns success
+   even if that config file does not exist. This behavior is exported and
+   can not be changed.
+
+   But sometimes, eg. with ~/.config/popt and ~/.popt, we need to know
+   whether a config file exists in order to read just one.
+   poptReadConfigFileInternal allows that. poptReadConfigFile is a very thin
+   wrapper around this function. */
+static int poptReadConfigFileInternal(poptContext con, const char * fn,
+		int flags)
 {
     char * b = NULL, *be;
     size_t nb = 0;
@@ -348,7 +359,7 @@ int poptReadConfigFile(poptContext con, const char * fn)
     int rc;
 
     if ((rc = poptReadFile(fn, &b, &nb, POPT_READFILE_TRIMNEWLINES)) != 0)
-	return (errno == ENOENT ? 0 : rc);
+	return (flags & POPT_IGNORE_ENOENT && errno == ENOENT ? 0 : rc);
     if (b == NULL || nb == 0) {
 	rc = POPT_ERROR_BADCONFIG;
 	goto exit;
@@ -389,6 +400,11 @@ exit:
     if (b)
 	free(b);
     return rc;
+}
+
+int poptReadConfigFile(poptContext con, const char * fn)
+{
+    return poptReadConfigFileInternal(con, fn, POPT_IGNORE_ENOENT);
 }
 
 int poptReadConfigFiles(poptContext con, const char * paths)
