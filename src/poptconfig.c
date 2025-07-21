@@ -452,6 +452,7 @@ int poptReadConfigFiles(poptContext con, const char * paths)
 
 int poptReadDefaultConfig(poptContext con, UNUSED(int useEnv))
 {
+    char * xdgconf;
     char * home;
     struct stat sb;
     int rc = 0;		/* assume success */
@@ -482,11 +483,35 @@ int poptReadDefaultConfig(poptContext con, UNUSED(int useEnv))
     }
     if (rc) goto exit;
 #endif
+    xdgconf = getenv("XDG_CONFIG_HOME");
+    home = getenv("HOME");
 
-    if ((home = getenv("HOME"))) {
-	char * fn = malloc(strlen(home) + 20);
+    /* try to read either $XDG_CONFIG_HOME/popt or $HOME/.config/popt ... */
+    if (xdgconf != NULL && *xdgconf) {
+	char * fn = malloc(strlen(xdgconf) + strlen("/popt") + 1);
+	if (fn != NULL) {
+	    (void) stpcpy(stpcpy(fn, xdgconf), "/popt");
+	    rc = poptReadConfigFileInternal(con, fn, 0);
+	    free(fn);
+	    if (rc && errno != ENOENT) goto exit;
+	}
+    } else if (home != NULL) {
+	char * fn = malloc(strlen(home) + strlen("/.config/popt") + 1);
+	if (fn != NULL) {
+	    (void) stpcpy(stpcpy(fn, home), "/.config/popt");
+	    rc = poptReadConfigFileInternal(con, fn, 0);
+	    free (fn);
+	    if (rc && errno != ENOENT) goto exit;
+	}
+    }
+
+    /* ... and only read ~/.popt if neither $XDG_CONFIG_HOME/popt or
+       $HOME/.config/popt exist */
+    if (rc && home != NULL) {
+	char * fn = malloc(strlen(home) + strlen("/.popt") + 1);
 	if (fn != NULL) {
 	    (void) stpcpy(stpcpy(fn, home), "/.popt");
+            /* it's OK if this config file is missing */
 	    rc = poptReadConfigFile(con, fn);
 	    free(fn);
 	} else
